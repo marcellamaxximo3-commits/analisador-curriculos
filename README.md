@@ -1,6 +1,6 @@
 # Analisador de Currículos
 
-Site estático onde a pessoa sobe um currículo em PDF e recebe:
+Site estático onde a pessoa sobe um currículo em PDF ou DOCX e recebe:
 
 - nota geral (0–100)
 - pontos positivos e pontos negativos
@@ -11,7 +11,7 @@ Site estático onde a pessoa sobe um currículo em PDF e recebe:
 Frontend em HTML/JS puro (GitHub Pages) + backend em **n8n** que extrai o texto do PDF e chama a **OpenAI**.
 
 ```
-Navegador ──PDF──▶ Webhook n8n ─▶ Extrai texto ─▶ OpenAI (JSON) ─▶ Responde ─▶ Navegador
+Navegador ──PDF/texto──▶ Webhook n8n ─▶ Extrai texto (ou OCR via OpenAI) ─▶ OpenAI (JSON) ─▶ Responde ─▶ Navegador
 ```
 
 ## Como ligar o backend
@@ -40,4 +40,5 @@ python3 -m http.server 8000   # abra http://localhost:8000
 - A URL do webhook é pública: quem a tiver pode gastar a sua cota. Considere limitar a taxa no n8n/proxy.
 - Currículos têm dados pessoais (LGPD): informe os candidatos de que o arquivo é enviado à OpenAI e não guarde os dados sem necessidade.
 - A detecção de IA é um **indício**, não prova. A nota é apoio à decisão; não use como único critério de seleção.
-- Só PDF com texto selecionável; PDF escaneado (imagem) precisa de OCR.
+- **Formatos:** PDF com texto, PDF escaneado e DOCX. No DOCX o texto é extraído no navegador (mammoth.js). No PDF escaneado, o n8n detecta a falta de texto e envia o PDF direto ao modelo da OpenAI, que lê as imagens (OCR) — custa mais tokens. Arquivos `.doc` antigos não são suportados.
+- Se a OpenAI recusar o PDF no nó HTTP, confirme que o modelo é de visão (`gpt-4o-mini` ou `gpt-4o`).

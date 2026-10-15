@@ -15,7 +15,7 @@ const DEMO = {
 function pick(f) {
   $("err").classList.add("hidden");
   if (!f) return;
-  if (f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) return fail("Envie um arquivo PDF.");
+  if (!/\.(pdf|docx)$/i.test(f.name)) return fail(/\.doc$/i.test(f.name) ? "Arquivo .doc antigo não é suportado: salve como DOCX ou PDF." : "Envie um arquivo PDF ou DOCX.");
   if (f.size > MAX) return fail("O arquivo passa de 5 MB.");
   file = f; $("fname").textContent = f.name; $("go").disabled = false;
 }
@@ -28,7 +28,7 @@ $("file").onchange = e => pick(e.target.files[0]);
 drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
 drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); pick(e.dataTransfer.files[0]); };
-$("again").onclick = () => { $("result").classList.add("hidden"); $("upload").classList.remove("hidden"); file = null; $("file").value = ""; $("fname").textContent = "Somente PDF, até 5 MB"; $("go").disabled = true; };
+$("again").onclick = () => { $("result").classList.add("hidden"); $("upload").classList.remove("hidden"); file = null; $("file").value = ""; $("fname").textContent = "PDF (inclusive escaneado) ou DOCX, até 5 MB"; $("go").disabled = true; };
 
 $("go").onclick = async () => {
   const url = (window.APP_CONFIG || {}).WEBHOOK_URL;
@@ -37,7 +37,13 @@ $("go").onclick = async () => {
     let data, demo = false;
     if (!url) { await new Promise(r => setTimeout(r, 1200)); data = DEMO; demo = true; }
     else {
-      const fd = new FormData(); fd.append("file", file, file.name);
+      const fd = new FormData();
+      if (/\.docx$/i.test(file.name)) {
+        // DOCX: extrai o texto no navegador e envia só o texto
+        const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        if (value.trim().length < 50) throw new Error("não encontrei texto no DOCX");
+        fd.append("text", value);
+      } else fd.append("file", file, file.name);
       const r = await fetch(url, { method: "POST", body: fd });
       if (!r.ok) throw new Error("O servidor respondeu " + r.status);
       data = await r.json();
