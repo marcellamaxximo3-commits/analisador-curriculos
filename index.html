@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analisador de Currículos</title>
+<meta name="description" content="Suba um currículo e receba pontos fortes, pontos fracos, detecção de texto de IA e uma nota de quanto vale conversar com o candidato.">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14161a;--mut:#6b7280;--line:#e5e7eb;--ac:#4f46e5;--ok:#15803d;--okbg:#dcfce7;--bad:#b91c1c;--badbg:#fee2e2;--warn:#a16207;--warnbg:#fef9c3}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1013;--card:#171a1f;--ink:#eceef1;--mut:#9aa3af;--line:#2a2f37;--ac:#818cf8;--ok:#4ade80;--okbg:#14301f;--bad:#f87171;--badbg:#3a1717;--warn:#facc15;--warnbg:#33290b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.7rem;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+#drop{border:2px dashed var(--line);border-radius:14px;padding:36px 16px;text-align:center;cursor:pointer;transition:.15s}
+#drop.over,#drop:hover{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 6%,transparent)}
+#drop b{color:var(--ac)}
+button{font:inherit;font-weight:600;background:var(--ac);color:#fff;border:0;border-radius:10px;padding:11px 20px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--ac);border:1px solid var(--line)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.hidden{display:none}
+.err{color:var(--bad);margin-top:10px}
+.banner{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.9rem}
+.head{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.score{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;font-size:2rem;font-weight:800;flex:none;
+ background:conic-gradient(var(--c) calc(var(--p)*1%),var(--line) 0)}
+.score span{width:84px;height:84px;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.who h2{margin:0;font-size:1.3rem}
+.who p{margin:2px 0;color:var(--mut)}
+.who a{color:var(--ac);text-decoration:none;font-weight:600}
+.verdict{display:inline-block;padding:4px 12px;border-radius:99px;font-weight:700;font-size:.85rem;margin-top:6px}
+.v-sim{background:var(--okbg);color:var(--ok)}.v-talvez{background:var(--warnbg);color:var(--warn)}.v-nao{background:var(--badbg);color:var(--bad)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}}
+h3{margin:0 0 10px;font-size:1rem}
+ul{margin:0;padding-left:20px}li{margin:6px 0}
+.pos h3{color:var(--ok)}.neg h3{color:var(--bad)}
+.bar{height:10px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 10px}
+.bar i{display:block;height:100%;background:var(--c)}
+blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid var(--warn);background:var(--warnbg);border-radius:0 8px 8px 0;font-size:.92rem}
+.mut{color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Analisador de Currículos</h1>
+  <p class="sub">Suba um currículo em PDF e veja pontos fortes, pontos fracos, trechos que parecem escritos por IA e se vale a pena conversar com a pessoa.</p>
+
+  <section id="upload" class="card">
+    <div id="drop" tabindex="0" role="button" aria-label="Escolher currículo em PDF">
+      <p style="margin:0"><b>Clique para escolher</b> ou arraste o PDF aqui</p>
+      <p class="mut" id="fname" style="margin:6px 0 0">Somente PDF, até 5 MB</p>
+    </div>
+    <input id="file" type="file" accept="application/pdf,.pdf" class="hidden">
+    <div class="row">
+      <button id="go" disabled>Analisar currículo</button>
+      <span id="status" class="mut"></span>
+    </div>
+    <div id="err" class="err hidden"></div>
+  </section>
+
+  <section id="result" class="hidden">
+    <div id="demo" class="banner hidden">Modo demonstração: nenhum webhook configurado, este é um resultado de exemplo. Veja o README para ligar o n8n.</div>
+    <div class="card head">
+      <div class="score" id="score"><span id="scoreN"></span></div>
+      <div class="who">
+        <h2 id="nome"></h2>
+        <p id="cargo"></p>
+        <p><a id="email"></a> <span id="tel" class="mut"></span></p>
+        <div id="verdict" class="verdict"></div>
+      </div>
+    </div>
+    <div class="card"><h3>Resumo</h3><p id="resumo" style="margin:0"></p></div>
+    <div class="grid">
+      <div class="card pos"><h3>Pontos positivos</h3><ul id="pos"></ul></div>
+      <div class="card neg"><h3>Pontos negativos</h3><ul id="neg"></ul></div>
+    </div>
+    <div class="card"><h3>Conteúdo gerado por IA</h3>
+      <div class="bar" id="aiBar"><i id="aiFill"></i></div>
+      <p id="aiTxt" style="margin:0 0 6px"></p><div id="aiQuotes"></div>
+    </div>
+    <div class="card"><h3>Vale a pena conversar?</h3>
+      <p id="why" style="margin-top:0"></p>
+      <div id="qWrap"><h3 style="margin-top:14px">Perguntas para a conversa</h3><ul id="qs"></ul></div>
+    </div>
+    <button class="ghost" id="again">Analisar outro currículo</button>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
